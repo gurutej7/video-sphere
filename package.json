@@ -1,0 +1,15 @@
+{
+  "name": "video-sphere",
+  "version": "1.0.0",
+  "description": "A backend project focused on user authentication and CRUD operations for various data models, including video management.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "javascript",
+    "backend"
+  ],
+  "author": "gurutej",
+  "license": "ISC"
+}
