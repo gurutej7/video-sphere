@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
 
-const { registerUser } = require("../controllers/user.controller");
+const { registerUser, loginUser,logoutUser } = require("../controllers/user.controller");
 const { upload } = require("../middlewares/multer.middleware");
+const authenticateUser = require("../middlewares/auth.middleware");
 
 router.route("/register").post(
   upload.fields([
@@ -17,5 +18,10 @@ router.route("/register").post(
   ]),
   registerUser
 );
+
+router.route("/login").post(loginUser);
+
+// routes that require authentication
+router.route("/logout").post(authenticateUser,logoutUser);
 
 module.exports = router;
