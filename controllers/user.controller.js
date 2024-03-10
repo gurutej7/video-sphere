@@ -46,7 +46,7 @@ const registerUser = async (req, res) => {
     throw new BadRequestError("avatar image is required");
   }
 
-  // check if coverImage is provided or not 
+  // check if coverImage is provided or not
   if (
     req.files &&
     Array.isArray(req.files.coverImage) &&
@@ -54,8 +54,6 @@ const registerUser = async (req, res) => {
   ) {
     coverImageLocalPath = req.files.coverImage[0].path;
   }
-
-  
 
   //uploading on cloudinary
   const avatar = await uploadOnCloudinary(avatarLocalPath);
@@ -190,8 +188,89 @@ const logoutUser = async (req, res) => {
     .json(new ApiResponse({}, "Logged out successfully"));
 };
 
+const refreshAccessToken = async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new UnauthenticatedError("Invalid refresh Token");
+  }
+
+  // verify the incoming token , and get decoded info
+  const payload = jwt.verify(
+    incomingRefreshToken,
+    process.env.REFRESH_JWT_SECRET
+  );
+
+  const user = await User.findById(payload.userId);
+
+  if (!user) {
+    throw new UnauthenticatedError("Invalid refresh Token");
+  }
+
+  // compare with our refreshToken in db
+  if (incomingRefreshToken !== user.refreshToken) {
+    throw new UnauthenticatedError("Invalid refresh token");
+  }
+
+  // generate new AccessToken
+  const { accessToken, newRefreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  // response
+  return res
+    .status(StatusCodes.OK)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", newRefreshToken, options)
+    .json(
+      new ApiResponse(
+        { accessToken, refreshToken: newRefreshToken },
+        "Token refreshed succesfully"
+      )
+    );
+};
+
+const changePassword = async (req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+
+  const user = await user.findById(req.user?._id);
+
+  if (!user) {
+    throw new UnauthenticatedError("Invalid credentials");
+  }
+
+  // compare password
+  const isPasswordCorrect = await user.comparePassword(password);
+  if (!isPasswordCorrect) {
+    throw new UnauthenticatedError("Old password doesn`t match");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new BadRequestError("confirm password doen`t match new password");
+  }
+
+  user.password = newPassword;
+  // save in db
+  await user.save({ validateBeforeSave: true });
+
+  return res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse({}, "passwoord reset is successfull"));
+};
+
+const getCurrentUser = async (req,res) =>{
+  res.status(StatusCodes.OK).json(new ApiResponse(req.user, "current user fetched successfully"));
+}
+
+
+
+
+
 module.exports = {
   registerUser,
   loginUser,
   logoutUser,
+  refreshAccessToken,
+  changePassword,
 };
