@@ -234,14 +234,14 @@ const refreshAccessToken = async (req, res) => {
 const changePassword = async (req, res) => {
   const { oldPassword, newPassword, confirmPassword } = req.body;
 
-  const user = await user.findById(req.user?._id);
+  const user = await User.findById(req.user?._id);
 
   if (!user) {
     throw new UnauthenticatedError("Invalid credentials");
   }
 
   // compare password
-  const isPasswordCorrect = await user.comparePassword(password);
+  const isPasswordCorrect = await user.comparePassword(oldPassword);
   if (!isPasswordCorrect) {
     throw new UnauthenticatedError("Old password doesn`t match");
   }
@@ -259,13 +259,195 @@ const changePassword = async (req, res) => {
     .json(new ApiResponse({}, "passwoord reset is successfull"));
 };
 
-const getCurrentUser = async (req,res) =>{
-  res.status(StatusCodes.OK).json(new ApiResponse(req.user, "current user fetched successfully"));
-}
+const getCurrentUser = async (req, res) => {
+  res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(req.user, "current user fetched successfully"));
+};
 
+const updateUserAvatar = async (req, res) => {
+  const avatarLocalPath = req.file?.path;
 
+  if (!avatarLocalPath) {
+    throw new BadRequestError("Please provide a image to update");
+  }
 
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
 
+  if (!avatar.url) {
+    throw new BadRequestError("Error while uploading image");
+  }
+
+  const userId = req.user?._id; // we get user , because of auth middleware
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(user, "avatar updated successfully"));
+};
+
+const updateCoverImage = async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+
+  if (!coverImageLocalPath) {
+    throw new BadRequestError("Please provide a image to update");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  if (!coverImage.url) {
+    throw new BadRequestError("Error while uploading image");
+  }
+
+  const userId = req.user?._id; // we get user , because of auth middleware
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        coverImage: coverImage.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(user, "cover Image updated successfully"));
+};
+
+// a user can see other users profile , for exampele how many subscribers etc.
+const getUserChannelProfile = async (req, res) => {
+  // https://leetcode.com/gurutej7  =>(username)
+  const { username } = req.params;
+
+  if (!username) {
+    throw new BadRequestError("please provide a username");
+  }
+  // array is returned from this method
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username.trim().toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions", // Subscription (model in db)
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond :{
+            if: { $in: [req.user?._id, "$subscribers"] },
+            then: true,
+            else: false,
+          }
+        },
+      },
+    },
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1,
+      },
+    },
+  ]);
+
+  if (!channel?.length) {
+    throw new BadRequestError("Enter a valid channel name");
+  }
+
+  return res
+    .status(StatusCodes.OK)
+    .json(new ApiResponse(channel[0], "channel details fetched successfully"));
+};
+
+const getWatchHistory = async (req, res) => {
+  const userWatchHistory = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "videoOwner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              videoOwner: {
+                $first: "$videoOwner",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  return res
+    .status(StatusCodes.OK)
+    .json(
+      new ApiResponse(
+        userWatchHistory[0].watchHistory,
+        "watch History fetched successfully"
+      )
+    );
+};
 
 module.exports = {
   registerUser,
@@ -273,4 +455,9 @@ module.exports = {
   logoutUser,
   refreshAccessToken,
   changePassword,
+  getCurrentUser,
+  updateUserAvatar,
+  updateCoverImage,
+  getUserChannelProfile,
+  getWatchHistory,
 };

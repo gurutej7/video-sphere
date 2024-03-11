@@ -6,9 +6,16 @@ const {
   loginUser,
   logoutUser,
   refreshAccessToken,
+  changePassword,
+  getCurrentUser,
+  updateUserAvatar,
+  updateCoverImage,
+  getUserChannelProfile,
+  getWatchHistory,
 } = require("../controllers/user.controller");
 const { upload } = require("../middlewares/multer.middleware");
 const authenticateUser = require("../middlewares/auth.middleware");
+const { route } = require("express/lib/router");
 
 router.route("/register").post(
   upload.fields([
@@ -26,10 +33,20 @@ router.route("/register").post(
 
 router.route("/login").post(loginUser);
 
-router.route("/refresh-token").post(refreshAccessToken);
-
 // routes that require authentication
 router.route("/logout").post(authenticateUser, logoutUser);
-
+router.route("/refresh-token").post(refreshAccessToken); // only token security is used
+router.route("/change-password").post(authenticateUser, changePassword);
+router.route("/current-user").get(authenticateUser, getCurrentUser);
+router
+  .route("/update-avatar")
+  .patch(authenticateUser, upload.single("avatar"), updateUserAvatar);
+router
+  .route("/update-cover-image")
+  .patch(authenticateUser, upload.single("coverImage"), updateCoverImage);
+router
+  .route("/channel/:username")
+  .get(authenticateUser, getUserChannelProfile);
+router.route("/watch-history").get(authenticateUser, getWatchHistory);
 
 module.exports = router;
