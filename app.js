@@ -21,9 +21,11 @@ app.use(cookieParser());
 // routes
 const userRouter = require("./routes/user.routes");
 const channelRouter = require("./routes/subscriptions.routes");
+const videoRouter = require("./routes/video.routes");
 
 app.use("/api/v1/users",userRouter);
-app.use("/api/v1/channels/" , channelRouter);
+app.use("/api/v1/channels" , channelRouter);
+app.use("/api/v1/videos",videoRouter);
 
 
 const port = process.env.PORT || 5000;
