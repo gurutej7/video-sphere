@@ -13,8 +13,8 @@ const connectDB = require("./db/connect");
 
 // middlewares
 app.use(cors());
-app.use(express.json({limit:"16kb"}));
-app.use(express.urlencoded({extended:true,limit:"16kb"}));
+app.use(express.json({ limit: "16kb" }));
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
@@ -22,11 +22,12 @@ app.use(cookieParser());
 const userRouter = require("./routes/user.routes");
 const channelRouter = require("./routes/subscriptions.routes");
 const videoRouter = require("./routes/video.routes");
+const playlistRouter = require("./routes/playlist.routes");
 
-app.use("/api/v1/users",userRouter);
-app.use("/api/v1/channels" , channelRouter);
-app.use("/api/v1/videos",videoRouter);
-
+app.use("/api/v1/users", userRouter);
+app.use("/api/v1/channels", channelRouter);
+app.use("/api/v1/videos", videoRouter);
+app.use("/api/v1/playlists", playlistRouter);
 
 const port = process.env.PORT || 5000;
 
