@@ -10,6 +10,7 @@ const {
 } = require("../errors/index");
 const { ApiResponse } = require("../utils/apiResponse");
 const { StatusCodes } = require("http-status-codes");
+const { default: mongoose } = require("mongoose");
 
 // function to get comments of a video
 
@@ -68,7 +69,7 @@ const getVideoComments = async (req, res) => {
             $in: [req.user?._id, "$likes.likedBy"],
           },
           username: {
-            $arrayElement: ["$user.username", 0],
+            $arrayElemAt: ["$user.username", 0],
           },
         },
       },
@@ -107,3 +108,138 @@ const getVideoComments = async (req, res) => {
 };
 
 // function to add comment to a video
+
+const addComment = async (req, res) => {
+  // get the video and user and comment -content
+
+  const { videoId } = req.params;
+  if (!videoId || !mongoose.isValidObjectId(videoId)) {
+    throw new BadRequestError("Please provide a valid video id");
+  }
+  const { content } = req.body;
+  if (!content) {
+    throw new BadRequestError(
+      "Cannot post a empty comment , please provide content to comment"
+    );
+  }
+  const user = await User.findOne({
+    refreshToken: req.cookies.refreshToken,
+  });
+
+  if (!user) {
+    throw new UnauthenticatedError("Not a valid user");
+  }
+
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new NotFoundError("Cannot find the video with the given id");
+  }
+
+  // create a comment document in the database
+  const comment = await Comment.create({
+    content: content,
+    owner: user._id,
+    video: video._id,
+  });
+
+  if (!comment) {
+    throw new ApiError(
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      "Error while creating a comment in db"
+    );
+  }
+
+  return res
+    .status(StatusCodes.CREATED)
+    .json(new ApiResponse(comment, " comment created successfully"));
+};
+
+// function to edit the comment
+
+const editComment = async (req, res) => {
+  // get the particular comment
+  const { commentId } = req.params;
+  if (!commentId || !mongoose.isValidObjectId(commentId)) {
+    throw new BadRequestError("Please provide a valid comment Id");
+  }
+
+  // get the new content
+  const { newContent } = req.body;
+  if (!newContent) {
+    throw new BadRequestError("Please provide a new content to edit");
+  }
+
+  // get the comment and the user
+  const comment = await Comment.findById(commentId);
+
+  if (!comment) {
+    throw new NotFoundError("Cannot find the comment with the given id");
+  }
+
+  const user = await User.findOne({
+    refreshToken: req.cookies.refreshToken,
+  });
+
+  if (!user) {
+    throw new UnauthenticatedError("Not a valid user");
+  }
+
+  // only the owner of the comment can edit it
+  if (comment.owner.equals(user._id.toString())) {
+    // update the comment
+    comment.content = newContent;
+    await comment.save({ validationBeforeSave: false });
+
+    return res
+      .status(StatusCodes.OK)
+      .json(new ApiResponse(comment, "comment updated successfully"));
+  } else {
+    throw new UnauthenticatedError("Only the owner of the comment can edit it");
+  }
+};
+
+// function to delete a comment
+const deleteComment = async (req, res) => {
+  // get the particular comment
+  const { commentId } = req.params;
+  if (!commentId || !mongoose.isValidObjectId(commentId)) {
+    throw new BadRequestError("Please provide a valid comment Id");
+  }
+
+  // get the comment and the user
+  const comment = await Comment.findById(commentId);
+
+  if (!comment) {
+    throw new NotFoundError("Cannot find the comment with the given id");
+  }
+
+  const user = await User.findOne({
+    refreshToken: req.cookies.refreshToken,
+  });
+
+  if (!user) {
+    throw new UnauthenticatedError("Not a valid user");
+  }
+
+  // only the owner of the comment can delete it
+  if (comment.owner.equals(user._id.toString())) {
+    // delete the comment
+    await Comment.findByIdAndDelete(commentId);
+
+    return res
+      .status(StatusCodes.OK)
+      .json(new ApiResponse({}, "comment deleted successfully"));
+  } else {
+    throw new UnauthenticatedError(
+      "Only the owner of the comment can delete it"
+    );
+  }
+};
+
+module.exports = {
+  getVideoComments,
+  addComment,
+  editComment,
+  deleteComment,
+};
