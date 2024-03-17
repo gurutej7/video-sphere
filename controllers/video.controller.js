@@ -73,6 +73,7 @@ const publishVideo = async (req, res) => {
 // url/get-all-videos/:username
 const getAllVideos = async (req, res) => {
   const { username } = req.params;
+  const { page = 1, limit = 10, sortBy, sortType } = req.query;
 
   if (!username) {
     throw new BadRequestError("Please provide a user name");
@@ -84,33 +85,75 @@ const getAllVideos = async (req, res) => {
     throw new BadRequestError("Please provide a user name");
   }
 
-  // returns the array of videos , with given matching field
-  const allVideos = await Video.find({
-    owner: user._id,
-    isPublished: true,
-  });
+  const pageNumber = parseInt(page);
+  const limitOfComments = parseInt(limit);
+  const skip = (pageNumber - 1) * limitOfComments;
+  const pageSize = limitOfComments;
 
-  if (!allVideos) {
-    throw new ApiError(
-      StatusCodes.INTERNAL_SERVER_ERROR,
-      "something went wrong while fetching data from db , try again later"
-    );
-  }
+  const videos = await Video.aggregatePaginate(
+    Video.aggregate([
+      {
+        $match: {
+          isPublished: true,
+          owner: user._id,
+        },
+      },
+      {
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "video",
+          as: "likes",
+        },
+      },
+      {
+        $addFields: {
+          likes: {
+            $size: "$likes",
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          videoFile: 1,
+          thumbnail: 1,
+          title: 1,
+          description: 1,
+          duration: 1,
+          views: 1,
+          isPublished: 1,
+          owner: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          likes: 1,
+        },
+      },
+      {
+        $sort: {
+          [sortBy]: sortType == "asc" ? 1 : -1,
+        },
+      },
+      {
+        $skip: skip,
+      },
+      {
+        $limit: pageSize,
+      },
+    ])
+  );
 
-  if (allVideos.length == 0) {
+  if (videos.length === 0) {
     return res
       .status(StatusCodes.OK)
-      .json(new ApiResponse({}, "No videos available for the given user"));
+      .json(new ApiResponse({}, "No videos available"));
   }
+
+  // return response
 
   return res
     .status(StatusCodes.OK)
-    .json(
-      new ApiResponse(
-        allVideos,
-        "Videos of the given user fetched successfully"
-      )
-    );
+    .json(new ApiResponse(videos, "Videos fetched successfully"));
 };
 
 // function to get video by id
