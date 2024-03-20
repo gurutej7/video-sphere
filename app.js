@@ -17,6 +17,8 @@ app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
+const notFoundMiddleware = require("./middlewares/not-found");
+const errorHandlerMiddleware = require("./middlewares/error-handler");
 
 // routes
 const userRouter = require("./routes/user.routes");
@@ -36,6 +38,11 @@ app.use("/api/v1/comments", commentsRouter);
 app.use("/api/v1/likes", likesRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/api/v1/healthcheck", healthcheckRouter);
+
+// some extra middlewares
+app.use(errorHandlerMiddleware);
+app.use(notFoundMiddleware);
+
 
 const port = process.env.PORT || 5000;
 
