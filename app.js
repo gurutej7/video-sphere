@@ -26,6 +26,7 @@ const playlistRouter = require("./routes/playlist.routes");
 const commentsRouter = require("./routes/comments.routes");
 const likesRouter = require("./routes/like.routes");
 const dashboardRouter = require("./routes/dashboard.routes");
+const healthcheckRouter = require("./routes/healthcheck.routes");
 
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/channels", channelRouter);
@@ -34,6 +35,7 @@ app.use("/api/v1/playlists", playlistRouter);
 app.use("/api/v1/comments", commentsRouter);
 app.use("/api/v1/likes", likesRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
+app.use("/api/v1/healthcheck", healthcheckRouter);
 
 const port = process.env.PORT || 5000;
 
